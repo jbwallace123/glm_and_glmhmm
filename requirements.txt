@@ -1,0 +1,9 @@
+#requirements.txt
+
+numpy
+pandas
+matplotlib
+scikit-learn
+scipy
+PyYaml
+seaborn
