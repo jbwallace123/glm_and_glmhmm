@@ -1,36 +1,12 @@
-sglm
+sglm + glmhmm
 ==============================
 
-A GLM Pipeline for Neuroscience Analyses
+A GLM Pipeline for Neuroscience Analyses and a GLM Hidden Markov Model for Behavioral Analyses
 
-Built using sklearn.ElasticNet,Ridge, ElasticNetCV, and RidgeCV
+Built using sklearn.ElasticNet,Ridge, ElasticNetCV, RidgeCV and [SSM by Scott Linderman](https://github.com/lindermanlab/ssm/tree/master).
 
 All necessary packages listed in requirements.txt and are pip installable! 
 
-To get started, please take a look at the fitGLM jupyter notebook. When you have 
-completed running the notebook the output will generate a project directory.
+To get started, please take a look at the fitGLM or GLM-HMM jupyter notebooks.
 
-```bash
-Project directory will be created to include: 
-|
-| Project_Name
-| ├── data
-|   ├── 00001.csv
-|   ├── 00002.csv
-|   └── combined_output.csv
-| ├── models
-|   └── project_name.pkl
-| ├── results
-|   ├── model_fit.png
-|   ├── predicted_vs_actual.png
-|   └── residuals.png
-| config.yaml
-```
-
-data folder: will include all of your data in .csv format. Please refer to the notebook for formatting.
-
-models folder: will include outputs saved from the model_dict.
-
-results folder: includes some figures for quick visualization. 
-
-config.yaml: your config file to set your parameters for the model. 
+For more details on fitGLM, please visit the [sabatini-glm-workflow repository](https://github.com/jbwallace123/sabatini-glm-workflow).
