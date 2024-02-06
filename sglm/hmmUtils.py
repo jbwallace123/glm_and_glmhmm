@@ -1,7 +1,7 @@
 #hmmUtils.py
 
 """
-@author: celiaberon
+@author: celiaberon, jbwallace123
 
 """
 
@@ -11,6 +11,8 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+import wandb
+import random
 
 def list_to_str(seq):
     
@@ -139,4 +141,102 @@ def sort_cprobs(conditional_probs, sorted_histories):
     return conditional_probs.sort_values('history') # sort by reference ordinal values for history
 
 
+def animal_fit(train_x, y, num_states, obs_dim, observations, num_categories, prior_sigma, transitions,
+               prior_alpha, iters):
+    
+    '''
+    Fit GLM HMM to each animals' behavior
+    - train_x = list of x data for each animal. Expected to be [{'mouse': MOUSEID, 'data': train_x}, ...]
+    - y = list of y data for each animal. Expected to be [{'mouse': MOUSEID, 'choices': y}, ...]
+    - num_states = number of hidden states
+    - obs_dim = number of observation dimensions
+    - observations = expected to be a string "input_driven_obs", "bernoulli", etc.
+    - num_categories = number of categories for the observations
+    - prior_sigma = prior sigma for the observations
+    - transitions = expected to be a string "standard", "sticky", etc.
+    - prior_alpha = prior alpha for the transitions
+    - iters = number of iterations for the fit
 
+    Returns:
+    - list of fitted models for each animal
+    - list of test log likelihoods for each animal
+    - list of train scores for CV for each animal
+    - list of test scores for CV for each animal
+
+    '''
+    model_list = []
+    ll_list = []
+    train_scores_list = []
+    test_scores_list = []
+
+    import ssm
+    for i, mouse in enumerate(train_x):
+        print(f'Fitting model for mouse {i+1}/{len(train_x)}...')
+        inpts = train_x[i]['data'].to_numpy()
+        choices = y[i]['choices']
+        input_dim = inpts.shape[1]
+        for i in range(len(num_states)):
+            from ssm import model_selection
+            glmhmm = ssm.HMM(num_states[i], obs_dim, input_dim, observations=observations,
+                             observation_kwargs=dict(C=num_categories, prior_sigma=prior_sigma), 
+                             transitions=transitions, prior_alpha=prior_alpha)
+            train_scores, test_scores = ssm.model_selection.cross_val_scores(glmhmm, choices, inpts, heldout_frac=0.1, n_repeats=5, verbose=True)
+            N_iters = iters
+            ll = glmhmm.fit(choices, inputs=inpts, method="em", num_iters=N_iters, initialize=False)
+            ll_list.append({'mouse': train_x[i]['mouse'], 'll': ll})
+            train_scores_list.append({'mouse': train_x[i]['mouse'], 'scores': train_scores})
+            test_scores_list.append({'mouse': train_x[i]['mouse'], 'scores': test_scores})
+            model_list.append({'mouse': train_x[i]['mouse'], 'glmhmm': glmhmm})
+
+    return model_list, ll_list, train_scores_list, test_scores_list
+
+def global_fit(train_x, y, num_states, obs_dim, observations, num_categories, prior_sigma, transitions,
+               prior_alpha, iters):
+    
+    '''
+    Fit GLM HMM to all animals' behavior
+    - train_x = list of x data for all animals. 
+    - y = list of y data for each animal. 
+    - num_states = number of hidden states
+    - obs_dim = number of observation dimensions
+    - observations = expected to be a string "input_driven_obs", "bernoulli", etc.
+    - num_categories = number of categories for the observations
+    - prior_sigma = prior sigma for the observations
+    - transitions = expected to be a string "standard", "sticky", etc.
+    - prior_alpha = prior alpha for the transitions
+    - iters = number of iterations for the fit
+
+    Returns:
+    - fitted model
+    - test log likelihood
+    - train scores for CV
+    - test scores for CV
+
+    '''
+
+    global_model_list = []
+    global_ll_list = []
+    global_train_scores = []
+    global_test_scores = []
+
+    inpts = train_x.to_numpy()
+    input_dim = inpts.shape[1]
+
+    import ssm
+    for i in range(len(num_states)):
+        from ssm import model_selection
+        glmhmm = ssm.HMM(num_states[i], obs_dim, input_dim, observations=observations,
+                         observation_kwargs=dict(C=num_categories, prior_sigma=prior_sigma), 
+                         transitions=transitions, prior_alpha=prior_alpha)
+        train_scores, test_scores = ssm.model_selection.cross_val_scores(glmhmm, y, inpts, heldout_frac=0.1, n_repeats=5, verbose=True)
+        N_iters = iters
+        ll = glmhmm.fit(y, inputs=inpts, method="em", num_iters=N_iters, initialize=False)
+        global_ll_list.append(ll)
+        global_train_scores.append(train_scores)
+        global_test_scores.append(test_scores)
+        global_model_list.append(glmhmm)
+
+    return global_model_list, global_ll_list, global_train_scores, global_test_scores
+ 
+
+            
