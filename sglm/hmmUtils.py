@@ -175,9 +175,9 @@ def animal_fit(train_x, y, num_states, obs_dim, observations, num_categories, pr
         inpts = train_x[i]['data'].to_numpy()
         choices = y[i]['choices']
         input_dim = inpts.shape[1]
-        for i in range(len(num_states)):
+        for k in range(len(num_states)):
             from ssm import model_selection
-            glmhmm = ssm.HMM(num_states[i], obs_dim, input_dim, observations=observations,
+            glmhmm = ssm.HMM(num_states[k], obs_dim, input_dim, observations=observations,
                              observation_kwargs=dict(C=num_categories, prior_sigma=prior_sigma), 
                              transitions=transitions, prior_alpha=prior_alpha)
             train_scores, test_scores = ssm.model_selection.cross_val_scores(glmhmm, choices, inpts, heldout_frac=0.1, n_repeats=5, verbose=True)
