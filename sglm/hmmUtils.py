@@ -140,6 +140,48 @@ def sort_cprobs(conditional_probs, sorted_histories):
     
     return conditional_probs.sort_values('history') # sort by reference ordinal values for history
 
+def create_animal_datalist(train_data, test_data, x_cols):
+        
+        '''
+        INPUTS:
+            - train_data: list of training data for each animal
+            - test_data: list of testing data for each animal
+            - x_cols: list of column names for input data
+        OUTPUTS:
+            - train_data_x: list of training data for each animal
+            - test_data_x: list of testing data for each animal
+            - train_choices: list of training choices for each animal
+            - test_choices: list of testing choices for each animal
+            - train_data_trials: list of training data trials for each animal
+            - test_data_trials: list of testing data trials for each animal
+        '''
+
+        train_data_x = []
+        test_data_x = []
+        train_choices = []
+        test_choices = []
+        train_data_trials = []
+        test_data_trials = []
+
+        for mouse_index, mouse_data in enumerate(train_data):
+            data_x = mouse_data['mouse']['data'] 
+            data_x = data_x[x_cols].values
+            choices = mouse_data['mouse']['data']['Decision'].to_numpy().reshape(-1, 1).astype(int)
+            train_data_trials.append({'mouse': mouse_data['mouse']['mouse'], 'sessions': len(data_x)})
+            train_data_x.append({'mouse': mouse_data['mouse']['mouse'], 'data': data_x})
+            train_choices.append({'mouse': mouse_data['mouse']['mouse'], 'choices': choices})
+
+
+        for mouse_index, mouse_data in enumerate(test_data):
+            data_x = (mouse_data['mouse']['data'])
+            data_x = data_x[x_cols].values
+            choices = mouse_data['mouse']['data']['Decision'].to_numpy().reshape(-1, 1).astype(int)
+            test_data_trials.append({'mouse': mouse_data['mouse']['mouse'], 'sessions': len(data_x)})
+            test_data_x.append({'mouse': mouse_data['mouse']['mouse'], 'data': data_x})
+            test_choices.append({'mouse': mouse_data['mouse']['mouse'], 'choices': test_choices})
+            
+            return train_data_x, test_data_x, train_choices, test_choices, train_data_trials, test_data_trials
+
 
 def animal_fit(train_x, y, num_states, obs_dim, observations, num_categories, prior_sigma, transitions,
                prior_alpha, iters):
@@ -172,9 +214,15 @@ def animal_fit(train_x, y, num_states, obs_dim, observations, num_categories, pr
     import ssm
     for i, mouse in enumerate(train_x):
         print(f'Fitting model for mouse {i+1}/{len(train_x)}...')
-        inpts = train_x[i]['data'].to_numpy()
+
+        if type(train_x) == list:
+            inpts = train_x[i]['data']
+            input_dim = inpts.shape[1]
+        else: 
+            inpts = train_x.to_numpy()
+            input_dim = inpts.shape[1]
+
         choices = y[i]['choices']
-        input_dim = inpts.shape[1]
         for k in range(len(num_states)):
             from ssm import model_selection
             glmhmm = ssm.HMM(num_states[k], obs_dim, input_dim, observations=observations,
@@ -219,8 +267,12 @@ def global_fit(train_x, y, num_states, obs_dim, observations, num_categories, pr
     global_train_scores = []
     global_test_scores = []
 
-    inpts = train_x.to_numpy()
-    input_dim = inpts.shape[1]
+    if type(train_x) == list:
+        inpts = train_x
+        input_dim = inpts[0].shape[1]
+    else: 
+        inpts = train_x.to_numpy()
+        input_dim = inpts.shape[1]
 
     import ssm
     for i in range(len(num_states)):
