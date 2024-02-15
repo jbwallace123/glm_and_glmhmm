@@ -289,6 +289,3 @@ def global_fit(train_x, y, num_states, obs_dim, observations, num_categories, pr
         global_model_list.append(glmhmm)
 
     return global_model_list, global_ll_list, global_train_scores, global_test_scores
- 
-
-            
