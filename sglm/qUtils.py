@@ -186,11 +186,11 @@ def predict_choice(models, test_states, test_x, test_y, accuracy=True, verbose=F
                 pred_accuracy = np.mean(test_y[i]['data'][:, 0] == pred_choice)
                 if verbose:
                     print(f'Animal Model {mouse} with {num_states} state(s) has a test predictive accuracy of {pred_accuracy}')
-                acc.append(pred_accuracy)
+                acc.append({'mouse': mouse, 'num_states': num_states, 'acc':pred_accuracy})
         if accuracy:
             return acc
 
-def pred_occupancy(self):
+def pred_occupancy(train_states, test_states, models, multi_animal=False):
 
         train_max_prob_state = []
         test_max_prob_state = []
@@ -198,62 +198,217 @@ def pred_occupancy(self):
         test_occupancy = []
         train_occupancy_rates = []
         test_occupancy_rates = []
-        for i in model:
-            state_max_posterior = [np.argmax(posterior, axis=1) for posterior in self.train_states[i]]
 
-            state_occupancies = np.zeros((i+1, len(self.train_states[i])))
-            for idx_sess, max_post in enumerate(state_max_posterior):
-                idx, count = np.unique(max_post, return_counts=True)
-                state_occupancies[idx, idx_sess] = count.astype('float')
+        if multi_animal == False:
+            for i in range(len(models)):
+                state_max_posterior = [np.argmax(posterior, axis=1) for posterior in train_states[i]['expected_states']]
 
-            state_occupancies = state_occupancies.sum(axis=1) / state_occupancies.sum()
-            self.train_max_prob_state.append(state_max_posterior)
-            self.train_occupancy.append([make_onehot_array(max_post) for max_post in state_max_posterior])
-            self.train_occupancy_rates.append(state_occupancies)
-    
-            state_max_posterior = [np.argmax(posterior, axis=1) for posterior in self.test_states[i]]
-            state_occupancies = np.zeros((i+1, len(self.test_states[i])))
-            for idx_sess, max_post in enumerate(state_max_posterior):
-                idx, count = np.unique(max_post, return_counts=True)
-                state_occupancies[idx, idx_sess] = count.astype('float')
+                state_occupancies = np.zeros((i+1, len(train_states[i]['expected_states'])))
+                for idx_sess, max_post in enumerate(state_max_posterior):
+                    idx, count = np.unique(max_post, return_counts=True)
+                    state_occupancies[idx, idx_sess] = count.astype('float')
 
-            state_occupancies = state_occupancies.sum(axis=1) / state_occupancies.sum()
-            self.test_max_prob_state.append(state_max_posterior)
-            self.test_occupancy.append([make_onehot_array(max_post) for max_post in state_max_posterior])
-            self.test_occupancy_rates.append(state_occupancies)
+                state_occupancies = state_occupancies.sum(axis=1) / state_occupancies.sum()
+                train_max_prob_state.append(state_max_posterior)
+                train_occupancy.append([make_onehot_array(max_post) for max_post in state_max_posterior])
+                train_occupancy_rates.append(state_occupancies)
+        
+                state_max_posterior = [np.argmax(posterior, axis=1) for posterior in test_states[i]['expected_states']]
+                state_occupancies = np.zeros((i+1, len(test_states[i])))
+                for idx_sess, max_post in enumerate(state_max_posterior):
+                    idx, count = np.unique(max_post, return_counts=True)
+                    state_occupancies[idx, idx_sess] = count.astype('float')
+
+                state_occupancies = state_occupancies.sum(axis=1) / state_occupancies.sum()
+                test_max_prob_state.append(state_max_posterior)
+                test_occupancy.append([make_onehot_array(max_post) for max_post in state_max_posterior])
+                test_occupancy_rates.append(state_occupancies)
+
+        elif multi_animal == True:
+            for i in range(len(models)):
+                for item in train_states:
+                    mouse = item['mouse']
+                    num_states = item['num_states']
+                    state_max_posterior = [np.argmax(posterior, axis=1) for posterior in item['expected_states']]
+
+                    state_occupancies = np.zeros((num_states, len(item['expected_states'])))
+                    for idx_sess, max_post in enumerate(state_max_posterior):
+                        idx, count = np.unique(max_post, return_counts=True)
+                        state_occupancies[idx, idx_sess] = count.astype('float')
+
+                    state_occupancies = state_occupancies.sum(axis=1) / state_occupancies.sum()
+                    train_max_prob_state.append(state_max_posterior)
+                    train_occupancy.append({'mouse': mouse, 'num_states': num_states,
+                                        'occupancy': ([make_onehot_array(max_post) for max_post in state_max_posterior])})
+                    train_occupancy_rates.append(state_occupancies)
+   
+                for item in test_states:
+                    mouse = item['mouse']
+                    num_states = item['num_states']
+                    state_max_posterior = [np.argmax(posterior, axis=1) for posterior in item['expected_states']]
+                    
+                    state_occupancies = np.zeros((num_states, len(item['expected_states'])))
+                    for idx_sess, max_post in enumerate(state_max_posterior):
+                        idx, count = np.unique(max_post, return_counts=True)
+                        state_occupancies[idx, idx_sess] = count.astype('float')
+
+                    state_occupancies = state_occupancies.sum(axis=1) / state_occupancies.sum()
+                    test_max_prob_state.append(state_max_posterior)
+                    test_occupancy.append({'mouse': mouse, 'num_states': num_states,
+                                        'occupancy': ([make_onehot_array(max_post) for max_post in state_max_posterior])})
+                    test_occupancy_rates.append(state_occupancies)
+
+        return train_occupancy, test_occupancy
 
 
-def plot_state_probs(self, model_idx, sess_idx: int = 0,
-                        as_occupancy: bool = False):
-
-    if as_occupancy:
-        samples = self.test_occupancy[model_idx][sess_idx]
+def plot_state_probs(model_idx, trials_to_plot, test_states: list = None,
+                        test_occupancy: list = None,
+                        as_occupancy: bool = False, 
+                        multi_animal: bool = False):
+    import seaborn as sns
+    if as_occupancy and multi_animal == False:
+        samples = test_occupancy[model_idx][0]
+    elif as_occupancy and multi_animal == True:
+        samples = test_occupancy[model_idx]['occupancy'][0]
     else:
-        samples = self.test_states[model_idx][sess_idx]
+        samples = test_states[model_idx]['expected_states'][0]
+    
+    num_states = test_states[model_idx]['num_states']
 
     fig, ax = plt.subplots(figsize=(6, 3))
-    for i in range(model_idx + 1):
-        plt.plot(samples[:, i], label=i, alpha=0.8)
+    for i in range(num_states):
+        if num_states == 1:
+            plt.plot(samples, label=i, alpha=0.8)
+            print('Only one state detected! Plotting as a single line...')
+        else:
+            plt.plot(samples[:,i], label=i, alpha=0.8)
     ax.set(xlabel='trial', ylabel='prob')
     plt.legend(bbox_to_anchor=(1, 1), title='latent state')
+    plt.xlim(trials_to_plot)
     sns.despine()
 
+def plot_train_test_probs(train_probs, test_probs, mouse_id, age):
+    num_states = len(train_probs)
+    states = range(1, num_states + 1)
+    
+    # Calculate the position for train and test bars
+    train_positions = [state - 0.2 for state in states]
+    test_positions = [state + 0.2 for state in states]
+    
+    plt.figure(figsize=(6, 2))
+    plt.bar(train_positions, train_probs, width=0.4, align='center', label='Train', color='blue')
+    plt.bar(test_positions, test_probs, width=0.4, align='center', label='Test', color='orange')
+    plt.xlabel('States')
+    plt.ylabel('Probabilities')
+    plt.title(f'Mouse {mouse_id} (Age: {age}) State Probabilities')
+    plt.legend()
+    plt.xticks(states)
+    plt.tight_layout()
+    plt.show()
 
-def plot_tmat(self, model_idx, ax=None):
 
-    tmat = np.exp(self.model[model_idx].transitions.params)[0]
-    plot_states = self.num_states[:model_idx+1]
+def plot_tmat(model_list, model_idx, num_states, ax=None, multi_animal = False):
+
+    if multi_animal == False:
+        tmat = np.exp(model_list[model_idx]['model_list'][0].transitions.params)[0]
+    elif multi_animal == True:
+        tmat = np.exp(model_list[model_idx]['model_list'][0]['glmhmm'].transitions.params)[0]
 
     if ax is None:
         fig, ax = plt.subplots(figsize=(8, 3), dpi=80)
     ax.imshow(tmat, vmin=-0.8, vmax=1, cmap='bone')
     for i in range(tmat.shape[0]):
         for j in range(tmat.shape[1]):
-            _ = plt.text(j, i, str(np.around(tmat[i, j], decimals=2)),
-                            ha="center", va="center", color="k", fontsize=10)
-    ax.set(xlabel='state t+1', xlim=(-0.5, len(plot_states) - 0.5),
-            ylabel='state t', ylim=(len(plot_states) - 0.5, -0.5),
-            title='Transition matrix')
-    plt.xticks(plot_states - 1, plot_states, fontsize=10)
-    plt.yticks(plot_states - 1, plot_states, fontsize=10)
-    plt.tight_layout()
+            _ = plt.text(j, i, str(np.around(tmat[i, j], decimals=2)), ha="center", va="center",
+                        color="k", fontsize=12)
+    plt.xlim(-0.5, num_states - 0.5)
+    plt.xticks(range(0, num_states), range(num_states), fontsize=10)
+    plt.yticks(range(0, num_states), range(num_states), fontsize=10)
+    plt.ylim(num_states - 0.5, -0.5)
+    plt.ylabel("state t", fontsize = 15)
+    plt.xlabel("state t+1", fontsize = 15)
+    plt.title("Generative transition matrix", fontsize = 15)
+
+def permute_states(M,method='self-transitions',param='transitions',order=None,ix=None):
+
+    '''
+    Author
+    ------
+    NOT READY FOR USE
+    @irisstone, modified by @jbwallace123
+
+    Parameters
+    ----------
+    M : matrix of probabilities for input parameter (transitions, observations, or initial states)
+    Methods --- 
+        self-transitions : permute states in order from highest to lowest self-transition value (works
+            only with transition probabilities as inputs)
+        order : permute states according to a given order
+    param : specifies the input parameter
+    order : optional, specifies the order of permuted states for method=order
+    
+    Returns
+    -------
+    M_perm : M permuted according to the specified method/order
+    order : the order of the permuted states
+    '''
+    
+    # check for valid method
+    method_list = {'self-transitions','order','weight value'}
+    if method not in method_list:
+        raise Exception("Invalid method: {}. Must be one of {}".
+            format(method, method_list))
+        
+    # sort according to transitions
+    if method =='self-transitions':
+        
+        if param != 'transitions':
+            raise Exception("Invalid parameter choice: self-transitions permutation method \
+                            requires transition probabilities as parameter function input")
+        diags = np.diagonal(M) # get diagonal values for sorting
+        
+        order = np.flip(np.argsort(diags))
+        
+        M_perm = np.zeros_like(M)
+        for i in range(M.shape[0]):
+            for j in range(M.shape[1]):
+                M_perm[i,j] = M[order[i],order[j]]
+                
+    # sort according to given order
+    if method == 'order':
+        if param=='transitions':
+            M_perm = np.zeros_like(M)
+            for i in range(M.shape[0]):
+                for j in range(M.shape[1]):
+                    M_perm[i,j] = M[order[i],order[j]]
+        if param=='observations':
+            M_perm = np.zeros_like(M)
+            for i in range(M.shape[0]):
+                M_perm[i,:] = M[order[i],:]
+        if param=='weights':
+            M_perm = np.zeros_like(M)
+            for i in range(M.shape[0]):
+                M_perm[i,:,:] = M[order[i],:,:]
+        if param=='states':
+            K = len(np.unique(M))
+            M_perm = np.zeros_like(M)
+            for i in range(K):
+                M_perm[M==i] = order[i]
+        if param=='pstates':
+            M_perm = np.zeros_like(M)
+            for i in range(M.shape[0]):
+                for j in range(M.shape[1]):
+                    M_perm[i,j] = M[i,order[j]]
+                
+    # sort by the value of a particular weight
+    if method == 'weight value':
+        if ix is None:
+            raise Exception("Index of weight ix must be specified for this method")
+        
+        order = np.flip(np.argsort(M[:,ix]))
+        
+        M_perm = np.zeros_like(M)
+        for i in range(M.shape[0]):
+            M_perm[i,:] = M[order[i],:]
+    
+    return M_perm, order.astype(int)
